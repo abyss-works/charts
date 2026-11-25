@@ -1,0 +1,84 @@
+{{- range $name, $job := .Values.cronJobs }}
+{{- if $job.enabled }}
+{{- $url := $job.url | default (printf "http://%s%s" $.Values.app ($job.path | default "/")) }}
+{{- $method := $job.method | default "POST" }}
+{{- $timeout := $job.timeoutSeconds | default 300 }}
+{{- $secretName := $job.secretName | default $.Values.app }}
+{{- $secretKey := $job.secretKey | default "CRON_SECRET" }}
+{{- $body := $job.body | default "" }}
+{{- $podSec := $job.podSecurityContext | default $.Values.podSecurityContext }}
+{{- $contSec := $job.securityContext | default $.Values.securityContext }}
+{{- $dnsCfg := $job.dnsConfig | default $.Values.dnsConfig }}
+{{- $resources := $job.resources | default (dict "requests" (dict "cpu" "10m" "memory" "32Mi") "limits" (dict "cpu" "100m" "memory" "64Mi")) }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "abyss-app.namespace" $ }}
+  labels:
+    {{- include "abyss-app.labels" $ | nindent 4 }}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  timeZone: {{ $job.timeZone | default "Etc/UTC" }}
+  concurrencyPolicy: {{ $job.concurrencyPolicy | default "Forbid" }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit | default 3 }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ $job.backoffLimit | default 0 }}
+      template:
+        metadata:
+          labels:
+            {{- include "abyss-app.labels" $ | nindent 12 }}
+        spec:
+          automountServiceAccountToken: false
+          priorityClassName: {{ $job.priorityClassName | default "batch-low" }}
+          restartPolicy: Never
+          {{- with $dnsCfg }}
+          dnsConfig:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $podSec }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: trigger
+              image: {{ $job.image | default "curlimages/curl:8.11.1" }}
+              {{- with $contSec }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $secretName }}
+                      key: {{ $secretKey }}
+                {{- if $body }}
+                - name: CRON_BODY
+                  value: {{ $body | quote }}
+                {{- end }}
+                {{- with $job.env }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- if $job.command }}
+              command:
+                {{- toYaml $job.command | nindent 16 }}
+              {{- else }}
+              command:
+                - sh
+                - -c
+                {{- if $body }}
+                - {{ printf "curl -fsS -m %v -X %s -H \"Authorization: Bearer $CRON_SECRET\" -H \"Content-Type: application/json\" -d \"$CRON_BODY\" %q" $timeout $method $url | quote }}
+                {{- else }}
+                - {{ printf "curl -fsS -m %v -X %s -H \"Authorization: Bearer $CRON_SECRET\" %q" $timeout $method $url | quote }}
+                {{- end }}
+              {{- end }}
+              {{- with $resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+{{- end }}
+{{- end }}

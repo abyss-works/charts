@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "abyss-app.namespace" . }}
+  labels:
+    {{- include "abyss-app.labels" . | nindent 4 }}
+    {{- if .Values.namespace.ingressLabel }}
+    abyssworks.dev/ingress: {{ .Values.namespace.ingressLabel }}
+    {{- end }}
+    pod-security.kubernetes.io/enforce: {{ .Values.namespace.psa.enforce }}
+    pod-security.kubernetes.io/enforce-version: {{ .Values.namespace.psa.enforceVersion }}
+    pod-security.kubernetes.io/audit: {{ .Values.namespace.psa.audit }}
+    pod-security.kubernetes.io/audit-version: {{ .Values.namespace.psa.auditVersion }}
+    pod-security.kubernetes.io/warn: {{ .Values.namespace.psa.warn }}
+    pod-security.kubernetes.io/warn-version: {{ .Values.namespace.psa.warnVersion }}

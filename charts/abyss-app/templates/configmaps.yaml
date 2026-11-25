@@ -1,0 +1,25 @@
+{{- range $name, $cm := .Values.configMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "abyss-app.namespace" $ }}
+  labels:
+    {{- include "abyss-app.labels" $ | nindent 4 }}
+    {{- with $cm.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with $cm.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- with $cm.data }}
+data:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with $cm.binaryData }}
+binaryData:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,51 @@
+{{- if .Values.ingress.enabled }}
+{{- $defaultHost := include "abyss-app.host" . }}
+{{- $tlsSecret := include "abyss-app.tlsSecretName" . }}
+{{- $items := .Values.ingresses }}
+{{- if not $items }}
+{{- $items = list (dict "name" "" "path" "/" "pathType" "Prefix" "serviceName" .Values.app "servicePort" .Values.service.port) }}
+{{- end }}
+{{- range $item := $items }}
+{{- $ingName := $.Values.app }}
+{{- if $item.name }}
+{{- if hasPrefix $.Values.app $item.name }}
+{{- $ingName = $item.name }}
+{{- else }}
+{{- $ingName = printf "%s-%s" $.Values.app $item.name }}
+{{- end }}
+{{- end }}
+{{- $ingHost := $item.host | default $defaultHost }}
+{{- $annotations := merge (deepCopy ($item.annotations | default dict)) (deepCopy ($.Values.ingress.annotations | default dict)) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $ingName }}
+  namespace: {{ include "abyss-app.namespace" $ }}
+  labels:
+    {{- include "abyss-app.labels" $ | nindent 4 }}
+  {{- if $annotations }}
+  annotations:
+    {{- toYaml $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ $.Values.ingress.className | default "nginx" }}
+  rules:
+    - host: {{ $ingHost }}
+      http:
+        paths:
+          - path: {{ $item.path | default "/" }}
+            pathType: {{ $item.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $item.serviceName | default $.Values.app }}
+                port:
+                  number: {{ $item.servicePort | default $.Values.service.port }}
+  {{- if $.Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $ingHost }}
+      secretName: {{ $tlsSecret }}
+  {{- end }}
+{{- end }}
+{{- end }}

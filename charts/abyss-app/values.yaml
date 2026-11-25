@@ -1,0 +1,156 @@
+app: example
+environment: preview
+
+replicas: 1
+
+# Optional override; defaults to app-prod for prod and batch-low for preview.
+priorityClassName: ""
+
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+
+image:
+  repository: ghcr.io/abyss-works/example
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+namespace:
+  name: ""
+  ingressLabel: traefik
+  psa:
+    enforce: baseline
+    enforceVersion: v1.36
+    audit: restricted
+    auditVersion: v1.36
+    warn: restricted
+    warnVersion: v1.36
+
+nodeSelector:
+  kubernetes.io/hostname: oci-node
+
+dnsConfig:
+  options:
+    - name: ndots
+      value: "1"
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - sleep 5
+
+selectorLabels: {}
+podLabels: {}
+strategy: {}
+
+command: []
+args: []
+
+envFrom: []
+env: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+livenessProbe:
+  tcpSocket:
+    port: 3000
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+startupProbe: {}
+
+volumes: []
+volumeMounts: []
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ""
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: ""
+    issuerName: cloudflare-dns01
+    issuerKind: ClusterIssuer
+    dnsNames: []
+
+# Optional multi-path/rate-limit Ingress definitions; empty renders a single default Ingress.
+ingresses: []
+
+operatorAccess:
+  enabled: false
+  serviceAccountName: ""
+  serviceAccountNamespace: cluster-access
+  clusterRoleName: namespace-owner
+
+database:
+  cnpg:
+    enabled: false
+    name: ""
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:17.6-standard-trixie
+    enableSuperuserAccess: true
+    priorityClassName: app-infra
+    storageClass: local-path
+    size: 10Gi
+    nodeSelector:
+      kubernetes.io/hostname: oci-node
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    injectDatabaseUrl: true
+    databaseUrlKey: fqdn-uri
+    secretName: ""
+    prune: false
+    barman:
+      enabled: true
+      pluginName: barman-cloud.cloudnative-pg.io
+      objectName: ""
+    backup:
+      enabled: true
+      name: ""
+      schedule: "0 0 18 * * *"
+      backupOwnerReference: self
+
+cronJobs: {}
+
+extraWorkloads: {}
+
+configMaps: {}
+
+extraObjects: []

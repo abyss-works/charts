@@ -1,0 +1,18 @@
+{{- if and .Values.database.cnpg.enabled .Values.database.cnpg.backup.enabled }}
+{{- $clusterName := include "abyss-app.cnpgClusterName" . }}
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Values.database.cnpg.backup.name | default (printf "%s-daily" $clusterName) }}
+  namespace: {{ include "abyss-app.namespace" . }}
+  labels:
+    {{- include "abyss-app.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.database.cnpg.backup.schedule | quote }}
+  backupOwnerReference: {{ .Values.database.cnpg.backup.backupOwnerReference | default "self" }}
+  cluster:
+    name: {{ $clusterName }}
+  method: plugin
+  pluginConfiguration:
+    name: {{ .Values.database.cnpg.barman.pluginName | default "barman-cloud.cloudnative-pg.io" }}
+{{- end }}

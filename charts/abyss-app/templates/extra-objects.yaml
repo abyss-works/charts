@@ -1,0 +1,11 @@
+{{- range .Values.extraObjects }}
+{{- $obj := deepCopy . }}
+{{- if not (hasKey $obj "metadata") }}
+{{- $_ := set $obj "metadata" dict }}
+{{- end }}
+{{- if not (hasKey $obj.metadata "namespace") }}
+{{- $_ := set $obj.metadata "namespace" (include "abyss-app.namespace" $) }}
+{{- end }}
+---
+{{ toYaml $obj }}
+{{- end }}

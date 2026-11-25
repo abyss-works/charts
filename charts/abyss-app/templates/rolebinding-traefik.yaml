@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: traefik-secret-reader
+  namespace: {{ include "abyss-app.namespace" . }}
+  labels:
+    {{- include "abyss-app.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: traefik

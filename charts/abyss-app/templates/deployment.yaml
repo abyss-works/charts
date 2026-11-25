@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app }}
+  namespace: {{ include "abyss-app.namespace" . }}
+  labels:
+    {{- include "abyss-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "abyss-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "abyss-app.labels" . | nindent 8 }}
+        {{- include "abyss-app.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      priorityClassName: {{ include "abyss-app.priorityClassName" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.app }}
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- $injectDb := and .Values.database.cnpg.enabled .Values.database.cnpg.injectDatabaseUrl }}
+          {{- if or $injectDb .Values.env }}
+          env:
+            {{- if $injectDb }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "abyss-app.cnpgSecretName" . }}
+                  key: {{ .Values.database.cnpg.databaseUrlKey | default "fqdn-uri" }}
+            {{- end }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

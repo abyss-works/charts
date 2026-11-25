@@ -1,0 +1,66 @@
+app: hamsudoku
+environment: preview
+
+image:
+  repository: ghcr.io/abyss-works/hamsudoku
+  tag: dev-example
+
+envFrom:
+  - secretRef:
+      name: hamsudoku
+
+env:
+  - name: APP_URL
+    value: https://hamsudoku-preview.abyssworks.dev
+  - name: BETTER_AUTH_URL
+    value: https://hamsudoku-preview.abyssworks.dev
+  - name: DEPLOY_ENV
+    value: preview
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+database:
+  cnpg:
+    enabled: true
+
+cronJobs:
+  endless-supply:
+    enabled: true
+    schedule: "* * * * *"
+    method: POST
+    path: /api/internal/endless-generate
+    timeoutSeconds: 120
+    body: "{}"
+  daily-play-audit:
+    enabled: false
+    schedule: "30 19 * * *"
+    method: POST
+    path: /api/internal/play-audit
+    timeoutSeconds: 300
+  daily-ranking-catchup:
+    enabled: false
+    schedule: "0 19 * * *"
+    method: POST
+    path: /api/internal/ranking-finalize
+    timeoutSeconds: 300
+    body: '{"recover":true}'
+  weekly-ranking-finalize:
+    enabled: false
+    schedule: "5 15 * * 0"
+    method: POST
+    path: /api/internal/ranking-finalize
+    timeoutSeconds: 300
+    body: '{"recover":true}'
