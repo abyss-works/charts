@@ -1,4 +1,4 @@
-{{- if and .Values.database.cnpg.enabled .Values.database.cnpg.backup.enabled }}
+{{- if and .Values.database.cnpg.enabled .Values.database.cnpg.barman.enabled .Values.database.cnpg.backup.enabled }}
 {{- $clusterName := include "abyss-app.cnpgClusterName" . }}
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
