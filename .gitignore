@@ -1,0 +1,8 @@
+*.tgz
+*.tmp
+*.bak
+*.orig
+.DS_Store
+.worktrees/
+charts/*/charts/
+charts/*/tmpcharts/
