@@ -1,0 +1,39 @@
+{{- if .Values.database.cnpg.enabled }}
+{{- $clusterName := include "abyss-app.cnpgClusterName" . }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $clusterName }}
+  namespace: {{ include "abyss-app.namespace" . }}
+  labels:
+    {{- include "abyss-app.labels" . | nindent 4 }}
+  {{- if not .Values.database.cnpg.prune }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  instances: {{ .Values.database.cnpg.instances }}
+  imageName: {{ .Values.database.cnpg.imageName }}
+  enableSuperuserAccess: {{ .Values.database.cnpg.enableSuperuserAccess }}
+  priorityClassName: {{ .Values.database.cnpg.priorityClassName | default "app-infra" }}
+  storage:
+    storageClass: {{ .Values.database.cnpg.storageClass }}
+    size: {{ .Values.database.cnpg.size }}
+  {{- with .Values.database.cnpg.nodeSelector }}
+  affinity:
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  {{- with .Values.database.cnpg.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.database.cnpg.barman.enabled }}
+  plugins:
+    - name: {{ .Values.database.cnpg.barman.pluginName | default "barman-cloud.cloudnative-pg.io" }}
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ .Values.database.cnpg.barman.objectName | default (printf "%s-r2" $clusterName) }}
+  {{- end }}
+{{- end }}

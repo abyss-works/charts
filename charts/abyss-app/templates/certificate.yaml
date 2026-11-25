@@ -1,0 +1,21 @@
+{{- if and .Values.ingress.enabled .Values.ingress.tls.enabled }}
+{{- $host := include "abyss-app.host" . }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "abyss-app.tlsSecretName" . }}
+  namespace: {{ include "abyss-app.namespace" . }}
+  labels:
+    {{- include "abyss-app.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+    {{- if .Values.ingress.tls.dnsNames }}
+    {{- toYaml .Values.ingress.tls.dnsNames | nindent 4 }}
+    {{- else }}
+    - {{ $host }}
+    {{- end }}
+  issuerRef:
+    kind: {{ .Values.ingress.tls.issuerKind | default "ClusterIssuer" }}
+    name: {{ .Values.ingress.tls.issuerName | default "cloudflare-dns01" }}
+  secretName: {{ include "abyss-app.tlsSecretName" . }}
+{{- end }}

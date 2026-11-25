@@ -1,0 +1,117 @@
+app: pixel-fishing
+environment: preview
+
+image:
+  repository: ghcr.io/abyss-works/pixel-fishing
+  tag: dev-example
+
+operatorAccess:
+  enabled: true
+
+envFrom:
+  - secretRef:
+      name: pixel-fishing
+
+env:
+  - name: BETTER_AUTH_URL
+    value: https://pixel-fishing-preview.abyssworks.dev
+  - name: DEPLOY_ENV
+    value: preview
+  - name: CONSENT_EFFECTIVE_DATE
+    value: "2099-12-31"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 400m
+    memory: 1Gi
+
+readinessProbe:
+  httpGet:
+    path: /api/action
+    port: 3000
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 5m
+
+ingresses:
+  - name: ""
+    path: /
+    serviceName: pixel-fishing
+    annotations:
+      nginx.ingress.kubernetes.io/limit-rps: "50"
+      nginx.ingress.kubernetes.io/limit-burst-multiplier: "6"
+  - name: api
+    path: /api
+    serviceName: pixel-fishing
+    annotations:
+      nginx.ingress.kubernetes.io/limit-rps: "20"
+      nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+  - name: admin-api
+    path: /api/admin
+    serviceName: pixel-fishing
+    annotations:
+      nginx.ingress.kubernetes.io/limit-rps: "50"
+      nginx.ingress.kubernetes.io/limit-burst-multiplier: "6"
+  - name: live
+    path: /api/live
+    serviceName: pixel-fishing
+    annotations:
+      nginx.ingress.kubernetes.io/limit-rps: "2"
+      nginx.ingress.kubernetes.io/limit-burst-multiplier: "10"
+  - name: admin
+    path: /admin
+    serviceName: pixel-fishing-admin
+    annotations:
+      nginx.ingress.kubernetes.io/limit-rps: "50"
+      nginx.ingress.kubernetes.io/limit-burst-multiplier: "6"
+
+extraWorkloads:
+  admin:
+    enabled: true
+    image:
+      repository: ghcr.io/abyss-works/pixel-fishing-admin
+    port: 8080
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+      limits:
+        cpu: 200m
+        memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /admin/
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 5
+
+database:
+  cnpg:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 400m
+        memory: 1Gi
+
+cronJobs:
+  archive:
+    enabled: false
+    schedule: "0 18 * * *"
+    method: GET
+    path: /api/cron/archive
+    timeoutSeconds: 900
+  purge-anon:
+    enabled: false
+    schedule: "30 18 * * *"
+    method: GET
+    path: /api/cron/purge-anon
+    timeoutSeconds: 900

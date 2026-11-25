@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -31,6 +35,7 @@ jobs:
 
       - name: Template and validate examples with kubeconform
         run: |
+          set -eo pipefail
           for f in charts/abyss-app/examples/values-*.yaml; do
             echo "=== Validating ${f} ==="
             name=$(basename "${f}" .yaml | sed 's/^values-//')

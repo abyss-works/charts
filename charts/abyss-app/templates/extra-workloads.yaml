@@ -1,0 +1,128 @@
+{{- range $name, $w := .Values.extraWorkloads }}
+{{- $enabled := true }}
+{{- if hasKey $w "enabled" }}
+{{- $enabled = $w.enabled }}
+{{- end }}
+{{- if $enabled }}
+{{- $fullName := printf "%s-%s" $.Values.app $name }}
+{{- $port := $w.port | default 8080 }}
+{{- $svcCfg := $w.service | default dict }}
+{{- $svcPort := $svcCfg.port | default 80 }}
+{{- $svcTargetPort := $svcCfg.targetPort | default $port }}
+{{- $imgCfg := $w.image | default dict }}
+{{- $imgRepo := $imgCfg.repository | default (printf "%s-%s" $.Values.image.repository $name) }}
+{{- $imgTag := $imgCfg.tag | default $.Values.image.tag }}
+{{- $imgPullPolicy := $imgCfg.pullPolicy | default $.Values.image.pullPolicy }}
+{{- $nodeSel := $w.nodeSelector | default $.Values.nodeSelector }}
+{{- $dnsCfg := $w.dnsConfig | default $.Values.dnsConfig }}
+{{- $podSec := $w.podSecurityContext | default $.Values.podSecurityContext }}
+{{- $contSec := $w.securityContext | default $.Values.securityContext }}
+{{- $lifecycle := $w.lifecycle | default $.Values.lifecycle }}
+{{- $resources := $w.resources | default (dict "requests" (dict "cpu" "10m" "memory" "16Mi") "limits" (dict "cpu" "200m" "memory" "64Mi")) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ include "abyss-app.namespace" $ }}
+  labels:
+    {{- include "abyss-app.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ if not (kindIs "invalid" $w.replicas) }}{{ $w.replicas }}{{ else }}1{{ end }}
+  selector:
+    matchLabels:
+      app: {{ $fullName }}
+  template:
+    metadata:
+      labels:
+        {{- include "abyss-app.labels" $ | nindent 8 }}
+        app: {{ $fullName }}
+    spec:
+      automountServiceAccountToken: {{ hasKey $w "automountServiceAccountToken" | ternary $w.automountServiceAccountToken $.Values.automountServiceAccountToken }}
+      priorityClassName: {{ $w.priorityClassName | default (include "abyss-app.priorityClassName" $) }}
+      terminationGracePeriodSeconds: {{ if not (kindIs "invalid" $w.terminationGracePeriodSeconds) }}{{ $w.terminationGracePeriodSeconds }}{{ else }}{{ $.Values.terminationGracePeriodSeconds }}{{ end }}
+      {{- with $nodeSel }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $dnsCfg }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $podSec }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $fullName }}
+          image: {{ printf "%s:%s" $imgRepo $imgTag }}
+          imagePullPolicy: {{ $imgPullPolicy }}
+          {{- with $w.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $contSec }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $port }}
+          {{- with $resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $w.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with $w.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ include "abyss-app.namespace" $ }}
+  labels:
+    {{- include "abyss-app.labels" $ | nindent 4 }}
+spec:
+  type: {{ $svcCfg.type | default "ClusterIP" }}
+  selector:
+    app: {{ $fullName }}
+  ports:
+    - name: http
+      port: {{ $svcPort }}
+      targetPort: {{ $svcTargetPort }}
+{{- end }}
+{{- end }}
